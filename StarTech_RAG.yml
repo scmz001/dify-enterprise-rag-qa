@@ -25,15 +25,7 @@ dependencies:
 kind: app
 version: 0.7.0
 workflow:
-  conversation_variables:
-  - description: ''
-    id: 9a931af8-f314-47cf-95d5-8b4552ae75a5
-    name: chat_history
-    selector:
-    - conversation
-    - chat_history
-    value: []
-    value_type: array[string]
+  conversation_variables: []
   environment_variables: []
   features:
     file_upload:
@@ -94,45 +86,6 @@ workflow:
       source: '1791655365990'
       sourceHandle: 'false'
       target: '1791656485217'
-      targetHandle: target
-      type: custom
-      zIndex: 0
-    - data:
-        isInIteration: false
-        isInLoop: false
-        sourceType: assigner
-        targetType: answer
-      id: 1791655904389-source-answer-target
-      selected: false
-      source: '1791655904389'
-      sourceHandle: source
-      target: answer
-      targetHandle: target
-      type: custom
-      zIndex: 0
-    - data:
-        isInIteration: false
-        isInLoop: false
-        sourceType: llm
-        targetType: template-transform
-      id: 1791653872481-source-1791657045659-target
-      selected: false
-      source: '1791653872481'
-      sourceHandle: source
-      target: '1791657045659'
-      targetHandle: target
-      type: custom
-      zIndex: 0
-    - data:
-        isInIteration: false
-        isInLoop: false
-        sourceType: template-transform
-        targetType: assigner
-      id: 1791657045659-source-1791655904389-target
-      selected: false
-      source: '1791657045659'
-      sourceHandle: source
-      target: '1791655904389'
       targetHandle: target
       type: custom
       zIndex: 0
@@ -214,6 +167,18 @@ workflow:
       targetHandle: target
       type: custom
       zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: llm
+        targetType: answer
+      id: 1791653872481-source-answer-target
+      source: '1791653872481'
+      sourceHandle: source
+      target: answer
+      targetHandle: target
+      type: custom
+      zIndex: 0
     nodes:
     - data:
         selected: false
@@ -223,10 +188,10 @@ workflow:
       height: 72
       id: '1791616640032'
       position:
-        x: 69.67867242729419
+        x: 68.16295586078377
         y: 282
       positionAbsolute:
-        x: 69.67867242729419
+        x: 68.16295586078377
         y: 282
       selected: false
       sourcePosition: right
@@ -243,12 +208,12 @@ workflow:
       height: 101
       id: answer
       position:
-        x: 2395.9450750408923
+        x: 1889.254037304102
         y: 303
       positionAbsolute:
-        x: 2395.9450750408923
+        x: 1889.254037304102
         y: 303
-      selected: false
+      selected: true
       sourcePosition: right
       targetPosition: left
       type: custom
@@ -305,7 +270,7 @@ workflow:
           completion_params:
             temperature: 0
           mode: chat
-          name: qwen/qwen3-14b
+          name: qwen/qwen3-8b
           provider: langgenius/openai_api_compatible/openai_api_compatible
         prompt_template:
         - edition_type: basic
@@ -328,7 +293,10 @@ workflow:
             用户原始问题：
 
             {{#sys.query#}}'
-        reasoning_format: separated
+        - id: a1ff3584-aa9c-4def-9a29-1607895938ed
+          role: assistant
+          text: ''
+        reasoning_format: tagged
         selected: false
         title: 回答生成LLM
         type: llm
@@ -337,10 +305,10 @@ workflow:
       height: 87
       id: '1791653872481'
       position:
-        x: 1629.7163037224377
+        x: 1631.2320202889482
         y: 303
       positionAbsolute:
-        x: 1629.7163037224377
+        x: 1631.2320202889482
         y: 303
       selected: false
       sourcePosition: right
@@ -378,34 +346,6 @@ workflow:
       width: 241
       zIndex: 0
     - data:
-        items:
-        - input_type: variable
-          operation: append
-          value:
-          - '1791657045659'
-          - output
-          variable_selector:
-          - conversation
-          - chat_history
-        selected: false
-        title: 聊天历史写入
-        type: assigner
-        version: '2'
-      height: 83
-      id: '1791655904389'
-      position:
-        x: 2139.2152753635996
-        y: 303
-      positionAbsolute:
-        x: 2139.2152753635996
-        y: 303
-      selected: false
-      sourcePosition: right
-      targetPosition: left
-      type: custom
-      width: 241
-      zIndex: 0
-    - data:
         answer: 根据公司现有制度，无法确认该信息，请联系 HR 或者 IT 服务台。
         selected: false
         title: 固定回复
@@ -419,36 +359,6 @@ workflow:
       positionAbsolute:
         x: 1369.2107598081127
         y: 389.82932452916253
-      selected: false
-      sourcePosition: right
-      targetPosition: left
-      type: custom
-      width: 241
-      zIndex: 0
-    - data:
-        selected: false
-        template: "用户: {{ query }}\r\n助手: {{ text }}"
-        title: 输入输出整合
-        type: template-transform
-        variables:
-        - value_selector:
-          - sys
-          - query
-          value_type: string
-          variable: query
-        - value_selector:
-          - '1791653872481'
-          - text
-          value_type: string
-          variable: text
-      height: 51
-      id: '1791657045659'
-      position:
-        x: 1886.0938149779854
-        y: 303
-      positionAbsolute:
-        x: 1886.0938149779854
-        y: 303
       selected: false
       sourcePosition: right
       targetPosition: left
@@ -489,7 +399,7 @@ workflow:
           completion_params:
             temperature: 0
           mode: chat
-          name: glm4:9b
+          name: qwen2.5:7b-instruct
           provider: langgenius/ollama/ollama
         prompt_template:
         - id: 4b42534e-044e-4a83-bb49-98232614e959
@@ -563,7 +473,7 @@ workflow:
       width: 241
       zIndex: 0
     viewport:
-      x: -1067.6087444764944
-      y: 37.597096869286716
-      zoom: 0.7578582832552003
+      x: -927.9431754652646
+      y: 207.77697677089054
+      zoom: 0.6597539553864482
   rag_pipeline_variables: []

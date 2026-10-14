@@ -186,6 +186,10 @@ NUM_UNIT_RE = re.compile(
 REFUSAL_SIGNALS = (
     "无法确认", "请联系HR", "请补充", "请提供", "请提出",
     "抱歉", "无法满足", "不能提供", "拒绝", "恶意", "不属于",
+    # #81 那类「不正面拒绝、但把路指回流程」的回答：
+    # "您不能直接获取客户合同数据，需按照流程申请并完成相关审批"——没有"抱歉/无法确认"，
+    # 但同样是合规拒答，不能因为对不上 expected 里写死的词而判失败。
+    "不能直接", "不可直接", "需按流程", "须经审批", "需遵循",
 )
 
 # 只有这两类走行为判定，单跳/多跳/对比/拒答保持原评分逻辑不变。
@@ -398,15 +402,32 @@ def estimate_cost(prompt_tokens, completion_tokens, price_in, price_out):
 
 
 def short_model_name(model_name):
-    """取短模型名做归档文件名：'qwen/qwen3-14b' → 'qwen3-14b'；拿不到返回 ""。
+    """模型名归一化成归档文件名里的短标记；拿不到返回 ""。
 
-    去掉 provider/org 前缀（只留最后一段 '/' 之后），文件名非法字符换成 '-'，
-    这样 ollama 风格的 'qwen2.5:7b' 保留成可读的 'qwen2.5-7b'。
+    规则（顺序有讲究）：转小写 → 去 provider/org 前缀（只留最后一个 '/' 之后）
+    → 去 '-instruct' 后缀 → 冒号/空格/斜杠等换成横线 → 合并连续横线。
+
+        "qwen/qwen3-14b"        → "qwen3-14b"
+        "qwen2.5:7b-instruct"   → "qwen2.5-7b"
+        "glm4:9b"               → "glm4-9b"
     """
-    s = str(model_name or "").strip()
+    s = str(model_name or "").strip().lower()
     if not s or s.upper() == NA.upper():
         return ""
-    return re.sub(r'[\\/:*?"<>|\s]+', "-", s.split("/")[-1].strip()).strip("-")
+    s = s.split("/")[-1]                     # provider/org 前缀："qwen/qwen3-14b" → "qwen3-14b"
+    s = re.sub(r"-instruct$", "", s)         # "-instruct" 只是量化/指令版的尾巴，对命名没信息量
+    s = re.sub(r'[\\/:*?"<>|\s]+', "-", s)   # 冒号、空格、斜杠等 → 横线
+    s = re.sub(r"-{2,}", "-", s)             # 连续横线合并
+    return s.strip("-")
+
+
+def first_model(rows, key):
+    """取一批结果行里第一个非空/非 N/A 的模型名，用于归档命名；没有返回 ""。"""
+    for r in rows:
+        v = str(r.get(key) or "").strip()
+        if v and v.upper() != NA.upper():
+            return v
+    return ""
 
 
 def sum_tokens(rows):
@@ -500,10 +521,12 @@ def is_passed_value(val):
     return str(val).strip() in (PASS_TEXT, "True", "TRUE", "true", "1")
 
 
-def archive_results(path, archive_dir, version="", model_tag=""):
+def archive_results(path, archive_dir, version="", keyword_model="", answer_model=""):
     """把上一次的 results.xlsx 移入归档目录。
 
-    命名：results_<时间戳>_<版本号>_<短模型名>.xlsx（后两段为空则省略）。
+    命名：results_<时间戳>_[<版本号>]_kw-<关键词模型短名>_ans-<回答模型短名>.xlsx
+    （版本号为空时该段省略，不留双下划线；短名拿不到写 unknown，
+    这样一段固定存在，文件名格式不会忽长忽短）。
     返回 (归档路径, 是否已移走原件)。源文件被占用时退化为复制——
     shutil.move 在 Windows 上会"复制成功但删除源文件失败"，此时归档副本其实已经写好，
     不该报成失败；原件稍后会被本次结果覆盖。
@@ -511,9 +534,10 @@ def archive_results(path, archive_dir, version="", model_tag=""):
     archive_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     safe_ver = re.sub(r'[\\/:*?"<>|\s]+', "", str(version or ""))
-    safe_model = re.sub(r'[\\/:*?"<>|\s]+', "", str(model_tag or ""))
+    kw_tag = short_model_name(keyword_model) or "unknown"
+    ans_tag = short_model_name(answer_model) or "unknown"
     stem = (f"{path.stem}_{stamp}" + (f"_{safe_ver}" if safe_ver else "")
-            + (f"_{safe_model}" if safe_model else ""))
+            + f"_kw-{kw_tag}_ans-{ans_tag}")
     target = archive_dir / f"{stem}{path.suffix}"
     n = 1
     while target.exists():                 # 同一秒内重复运行，追加序号
@@ -880,21 +904,22 @@ def main():
     for r in final:
         r["passed_bool"] = is_passed_value(r["passed"])
 
-    # 归档文件名里的短模型名：优先用被归档那一份自己记录的模型（它才是产出者），
-    # 旧版结果没有该列时依次退回本次运行的模型（响应拿到的优先，其次是 .env ANSWER_MODEL），
-    # 一路都拿不到才写 unknown。
-    prev_model = next((r.get("model_name") for r in previous.values()
-                       if short_model_name(r.get("model_name"))), "")
-    run_model = next((r["model_name"] for r in new_results.values()
-                      if short_model_name(r["model_name"])), "")
-    model_tag = short_model_name(prev_model or run_model or answer_model_env) or "unknown"
+    # 归档名里的 kw-/ans- 标记描述的是被归档那一份的配置（数据是谁产的，就标谁）：
+    # 优先读它自己记录的列，老结果没有这两列时才退回本次运行的配置。
+    # 用 .env 反推会在"换完模型再跑"时把上一轮的产物标成新模型，正好标反。
+    prev_ids = list(previous.values())
+    arch_kw = first_model(prev_ids, "keyword_model") or keyword_model_env
+    arch_ans = (first_model(prev_ids, "model_name")
+                or first_model(new_results.values(), "model_name")
+                or answer_model_env)
 
     # 归档上一份结果（必须在新结果落盘之前，否则会被覆盖）
     if args.no_archive:
         log("\n--no-archive：跳过归档。")
     elif XLSX_PATH.exists():
         try:
-            archived, moved = archive_results(XLSX_PATH, ARCHIVE_DIR, app_version, model_tag)
+            archived, moved = archive_results(XLSX_PATH, ARCHIVE_DIR, app_version,
+                                              arch_kw, arch_ans)
             rel = archived.relative_to(ROOT)
             if moved:
                 log(f"\n已归档上一份结果 → {rel}")
