@@ -1,13 +1,44 @@
-@'
+# ---------- 密钥与本地配置 ----------
 .env
-.venv/
-venv/
+.env.*
+!.env.example
+*.local.*
+
+# ---------- 本地环境 / 缓存 ----------
 __pycache__/
 *.pyc
 *.pyo
-*.log
-.DS_Store
-Thumbs.db
+node_modules/
+venv/
+.venv/
+
+# ---------- 工具私有目录 ----------
+.workbuddy/
 .idea/
 .vscode/
-'@ | Out-File -Encoding utf8 .gitignore
+
+# ---------- 日志 ----------
+*.log
+logs/
+
+# ---------- 评测产物（归档，不入库）----------
+results/
+/results*.xlsx
+
+# ---------- 系统垃圾文件 ----------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---------- 模型权重与二进制 ----------
+*.pkl
+*.bin
+*.gguf
+*.safetensors
+
+# ---------- 本地杂项 ----------
+新建 文本文档.txt
+
+# ---------- 例外：examples/ 下的示例结果需要入库 ----------
+!examples/
+!examples/*.xlsx
